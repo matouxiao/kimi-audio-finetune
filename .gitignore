@@ -1,0 +1,21 @@
+# 模型和输出目录
+output/
+*.ckpt
+*.pth
+*.safetensors
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 数据和音频文件（如果太大）
+*.wav
+*.flac
+*.mp3
+
+# 其他
+.DS_Store
+.vscode/
+.idea/
+*.log

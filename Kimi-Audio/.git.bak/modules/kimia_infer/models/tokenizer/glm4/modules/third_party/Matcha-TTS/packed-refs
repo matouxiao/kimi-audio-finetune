@@ -1,0 +1,14 @@
+# pack-refs with: peeled fully-peeled sorted 
+0c0bcaf69f53711b6f3187caf6bd4fe10cbe9b59 refs/remotes/origin/dependabot/pip/dev/diffusers-0.27.2
+068d135e20a9df992747f73dd45e1503b0f91d7b refs/remotes/origin/dev
+5a7f220662a971190c942d4ff62a08afe2ac30e6 refs/remotes/origin/docs
+bd4d90d93214b37f7a159cf205ae85762c2c10aa refs/remotes/origin/main
+562366012881a5c64222e98a1042264dafae1649 refs/remotes/origin/pre-commit-ci-update-config
+4c35836fa5aa70ab86b43fb9f9b60f9b30c423bf refs/remotes/origin/stoc_dur
+be998ae31f20b7f6565f908c8c6bf71e9383c3d3 refs/tags/0.0.2
+d373e9a5b176609f2db428134eecea26d3ad415d refs/tags/0.0.3
+b756809a32dcc0c97f89032e1a9e811eac34d347 refs/tags/0.0.4
+a38b06539329269dcb5102f66b466dba43ede81d refs/tags/v0.0.1.dev4
+256adc55d3219053d2d086db3f9bd9a4bde96fb1 refs/tags/v0.0.5
+d31cd92a6122fb99987715248941c96744bf0a36 refs/tags/v0.0.6
+77804265f877b0c42f13cfdece6541dde7838090 refs/tags/v0.0.7
