@@ -2,6 +2,7 @@ import os
 import argparse
 from typing import Optional, List
 import shutil
+import numpy as np
 import torch
 from transformers import AutoModelForCausalLM
 from huggingface_hub import snapshot_download
@@ -14,6 +15,19 @@ class KimiAudioModel(MoonshotKimiaForCausalLM):
     def __init__(self, config):
         super().__init__(config)
         self.whisper_model = WhisperEncoder("openai/whisper-large-v3", mel_batch_size=20, unfreeze_online_whisper_model=True)
+        # 在初始化时就将 speech_encoder 转换为 bf16，确保所有参数都是 bf16
+        # 这样 Flash Attention 才能正常工作
+        speech_encoder = self.whisper_model.speech_encoder
+        # 将整个 speech_encoder 转换为 bf16
+        speech_encoder = speech_encoder.to(torch.bfloat16)
+        # 确保所有参数都是 bf16（包括 conv1d 的 bias）
+        for name, param in speech_encoder.named_parameters():
+            if param.dtype.is_floating_point:
+                param.data = param.data.to(torch.bfloat16)
+        # 确保所有 buffer 也是 bf16
+        for name, buffer in speech_encoder.named_buffers():
+            if buffer.dtype.is_floating_point:
+                buffer.data = buffer.data.to(torch.bfloat16)
 
     @classmethod
     def init_from_pretrained(cls, model_name_or_path, model_load_kwargs):
@@ -94,13 +108,54 @@ class KimiAudioModel(MoonshotKimiaForCausalLM):
         generation_mode: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
-        whisper_input_feats = torch.from_numpy(whisper_input_feature[0]).unsqueeze(0)[:, :].to(torch.cuda.current_device())
-        whisper_feats = self.whisper_model(whisper_input_feats)
+        # whisper_input_feature 是原始音频（numpy 数组）
+        # 需要先转换为 mel spectrogram，然后通过 speech_encoder
+        # 但为了避免 whisper_model.forward() 内部的 bf16 转换，我们直接处理
+        
+        # 处理输入格式
+        if isinstance(whisper_input_feature, (list, tuple)) and len(whisper_input_feature) > 0:
+            if isinstance(whisper_input_feature[0], np.ndarray):
+                audio = whisper_input_feature[0]
+            else:
+                audio = whisper_input_feature[0].cpu().numpy() if torch.is_tensor(whisper_input_feature[0]) else whisper_input_feature[0]
+        else:
+            audio = whisper_input_feature[0].cpu().numpy() if torch.is_tensor(whisper_input_feature) else whisper_input_feature
+        
+        # 将音频转换为 mel spectrogram（使用 float32 计算，然后转换为 bf16）
+        from kimia_infer.models.tokenizer.whisper_Lv3.whisper import log_mel_spectrogram, pad_or_trim, N_SAMPLES
+        audio_tensor = torch.from_numpy(audio).to(torch.float32)
+        pad_audio = pad_or_trim(audio_tensor, length=N_SAMPLES)
+        mel = log_mel_spectrogram(pad_audio, device=torch.cuda.current_device())  # shape: [80, 3000]
+        
+        # 将 mel 转换为 bf16，确保类型一致（speech_encoder 已经在 __init__ 中转换为 bf16）
+        mel_input = mel.unsqueeze(0).to(torch.cuda.current_device()).to(torch.bfloat16)  # shape: [1, 80, 3000]
+        
+        # speech_encoder 已经在 __init__ 中转换为 bf16，直接使用
+        speech_encoder = self.whisper_model.speech_encoder
+        
+        # 使用 autocast 确保所有计算都是 bf16（Flash Attention 需要）
+        try:
+            # 新版本 API - 使用 bf16 autocast
+            with torch.amp.autocast(device_type='cuda', enabled=True, dtype=torch.bfloat16):
+                whisper_feats = speech_encoder(
+                    mel_input,
+                    return_dict=True,
+                ).last_hidden_state
+        except (AttributeError, TypeError):
+            # 兼容旧版本
+            with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+                whisper_feats = speech_encoder(
+                    mel_input,
+                    return_dict=True,
+                ).last_hidden_state
+        
         whisper_feats = whisper_feats.reshape(
             whisper_feats.shape[0],
             int(whisper_feats.shape[1] // 4),
             whisper_feats.shape[2] * 4,
         )
+        
+        # whisper_feats 已经是 bf16，直接使用
         return super().forward(
             input_ids=input_ids,
             text_input_ids=text_input_ids,
@@ -117,6 +172,56 @@ class KimiAudioModel(MoonshotKimiaForCausalLM):
             generation_mode=generation_mode,
             return_dict=return_dict,
         )
+    
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past_key_values=None,
+        attention_mask=None,
+        inputs_embeds=None,
+        **kwargs,
+    ):
+        """为生成准备输入，PEFT 需要此方法"""
+        # 如果有 past_key_values，只使用最后一个 token
+        if past_key_values is not None:
+            past_length = past_key_values[0][0].shape[2] if isinstance(past_key_values[0], tuple) else past_key_values[0].shape[2]
+            # 如果输入长度超过 past_length，只保留新的部分
+            if input_ids.shape[1] > past_length:
+                remove_prefix_length = past_length
+                input_ids = input_ids[:, remove_prefix_length:]
+            else:
+                # 默认行为：只保留最后一个 token
+                input_ids = input_ids[:, -1:]
+        
+        # 如果提供了 inputs_embeds，使用它而不是 input_ids
+        model_inputs = {"input_ids": input_ids}
+        
+        if inputs_embeds is not None:
+            model_inputs["inputs_embeds"] = inputs_embeds
+        
+        if attention_mask is not None:
+            model_inputs["attention_mask"] = attention_mask
+        
+        if past_key_values is not None:
+            model_inputs["past_key_values"] = past_key_values
+        
+        # 添加其他 kwargs
+        model_inputs.update(kwargs)
+        
+        return model_inputs
+    
+    @staticmethod
+    def _reorder_cache(past_key_values, beam_idx):
+        """重新排序缓存以支持 beam search，PEFT 需要此方法"""
+        reordered_past = ()
+        for layer_past in past_key_values:
+            if isinstance(layer_past, tuple):
+                reordered_past += (
+                    tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
+                )
+            else:
+                reordered_past += (layer_past.index_select(0, beam_idx.to(layer_past.device)),)
+        return reordered_past
     
 
 if __name__ == "__main__":

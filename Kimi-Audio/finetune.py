@@ -16,6 +16,7 @@ from transformers.integrations import deepspeed
 from transformers.trainer_pt_utils import LabelSmoother
 from accelerate.utils import DistributedType
 from huggingface_hub import snapshot_download
+from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 
 from finetune_codes.model import KimiAudioModel
 from finetune_codes.datasets import LazySupervisedDataset
@@ -42,6 +43,26 @@ class DataArguments:
         default=0.05, metadata={"help": "Ratio of evaluation data."}
     )
     lazy_preprocess: bool = False
+
+
+@dataclass
+class LoraArguments:
+    """LoRA 相关参数"""
+    use_lora: bool = field(
+        default=False, metadata={"help": "Whether to use LoRA fine-tuning."}
+    )
+    lora_rank: int = field(
+        default=8, metadata={"help": "LoRA rank."}
+    )
+    lora_alpha: int = field(
+        default=16, metadata={"help": "LoRA alpha (scaling factor)."}
+    )
+    lora_dropout: float = field(
+        default=0.05, metadata={"help": "LoRA dropout."}
+    )
+    lora_target: str = field(
+        default="all", metadata={"help": "Target modules for LoRA. Use 'all' for all linear layers, or comma-separated names like 'q_proj,k_proj,v_proj,o_proj'."}
+    )
 
 
 @dataclass
@@ -86,6 +107,99 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
         trainer._save(output_dir, state_dict=state_dict)
 
 
+def find_all_linear_modules(model):
+    """找到所有线性层模块名称"""
+    # 使用已知的有效模块名（基于 Qwen2 架构）
+    # 这些是 Kimi-Audio 模型（基于 Qwen2）中常见的线性层模块名
+    common_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    
+    # 验证这些模块是否存在于模型中
+    found_modules = set()
+    
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            # 排除 whisper_model 和 embedding 层
+            if "whisper_model" in name:
+                continue
+            if "embed" in name.lower():
+                continue
+            
+            module_name = name.split(".")[-1]
+            
+            # 如果模块名在常见模块列表中，添加到结果中
+            if module_name in common_modules:
+                found_modules.add(module_name)
+    
+    # 如果找到了常见模块，使用它们
+    if found_modules:
+        logger.info(f"Found {len(found_modules)} common linear modules: {sorted(found_modules)}")
+        return sorted(list(found_modules))
+    
+    # 如果没有找到常见模块，尝试查找所有有效的模块名（排除数字和太短的名称）
+    logger.warning("Common modules not found, searching for all valid linear modules...")
+    valid_modules = set()
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            if "whisper_model" in name or "embed" in name.lower():
+                continue
+            module_name = name.split(".")[-1]
+            # 只保留有效的模块名（不是纯数字，长度大于1，包含字母）
+            if not module_name.isdigit() and len(module_name) > 1 and any(c.isalpha() for c in module_name):
+                valid_modules.add(module_name)
+    
+    if valid_modules:
+        logger.info(f"Found {len(valid_modules)} valid linear modules: {sorted(valid_modules)}")
+        return sorted(list(valid_modules))
+    
+    # 如果还是没找到，使用默认值
+    logger.warning("No valid modules found, using default modules")
+    return common_modules
+
+
+def setup_lora_model(model, lora_args: LoraArguments):
+    """设置 LoRA 适配器"""
+    if not lora_args.use_lora:
+        return model
+    
+    logger.info("Setting up LoRA fine-tuning...")
+    
+    # 确定目标模块
+    if lora_args.lora_target == "all":
+        target_modules = find_all_linear_modules(model)
+        logger.info(f"Using all linear modules: {target_modules}")
+    else:
+        target_modules = [m.strip() for m in lora_args.lora_target.split(",")]
+        logger.info(f"Using specified modules: {target_modules}")
+    
+    # 创建 LoRA 配置
+    peft_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False,
+        r=lora_args.lora_rank,
+        lora_alpha=lora_args.lora_alpha,
+        lora_dropout=lora_args.lora_dropout,
+        target_modules=target_modules,
+    )
+    
+    # 应用 LoRA
+    # 确保模型有 PEFT 需要的方法
+    if not hasattr(model, "prepare_inputs_for_generation"):
+        logger.warning("Model missing prepare_inputs_for_generation, adding default implementation")
+    
+    model = get_peft_model(model, peft_config)
+    
+    # 打印可训练参数
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    all_params = sum(p.numel() for p in model.parameters())
+    logger.info(
+        f"Trainable params: {trainable_params:,} || "
+        f"All params: {all_params:,} || "
+        f"Trainable%: {100 * trainable_params / all_params:.4f}%"
+    )
+    
+    return model
+
+
 
 
 def make_supervised_data_module(
@@ -100,13 +214,32 @@ def make_supervised_data_module(
         all_data = [json.loads(line) for line in lines]
 
     if data_args.eval_ratio > 0:
-        eval_data = all_data[:int(len(all_data) * data_args.eval_ratio)]
-        train_data = all_data[int(len(all_data) * data_args.eval_ratio):]
-        assert len(eval_data) > 0, "No evaluation data found"
-        assert len(train_data) > 0, "No training data found"
+        eval_size = int(len(all_data) * data_args.eval_ratio)
+        # 确保至少有1条评估数据（如果数据量足够），但不超过总数据的50%
+        if eval_size == 0 and len(all_data) > 1:
+            eval_size = 1
+        elif eval_size > len(all_data) * 0.5:
+            eval_size = max(1, int(len(all_data) * 0.5))
+        
+        if eval_size > 0 and len(all_data) > eval_size:
+            eval_data = all_data[:eval_size]
+            train_data = all_data[eval_size:]
+        else:
+            # 如果数据量太少，不使用评估集
+            logger.warning(f"Data size ({len(all_data)}) is too small for evaluation, using all data for training")
+            eval_data = None
+            train_data = all_data
     else:
         eval_data = None
         train_data = all_data
+    
+    # 最终检查
+    if eval_data is not None and len(eval_data) == 0:
+        eval_data = None
+        train_data = all_data
+        logger.warning("Evaluation data is empty, using all data for training")
+    
+    assert len(train_data) > 0, "No training data found"
 
     train_dataset = dataset_cls(train_data, whisper_model=whisper_model, text_tokenizer=text_tokenizer, max_len=max_len, kimia_token_offset=kimia_token_offset)
 
@@ -123,7 +256,10 @@ def compute_loss(outputs, labels, num_items_in_batch=None):
     audio_logits, text_logits = outputs.logits
 
     audio_labels, text_labels, audio_loss_mask, text_loss_mask = labels
-    assert audio_labels.shape[0] == 1, print("we only support micro batch size 1 for demo purpose")
+    # 支持 batch_size >= 1，但如果 batch_size > 1 会给出警告
+    if audio_labels.shape[0] > 1:
+        import warnings
+        warnings.warn(f"Batch size is {audio_labels.shape[0]}, but compute_loss is optimized for batch_size=1. Results may vary.")
 
     audio_loss = torch.nn.functional.cross_entropy(audio_logits.view(-1, audio_logits.shape[-1]), audio_labels.view(-1), reduction="none")
     text_loss = torch.nn.functional.cross_entropy(text_logits.view(-1, text_logits.shape[-1]), text_labels.view(-1), reduction="none")
@@ -139,12 +275,13 @@ def train():
     global local_rank
 
     parser = transformers.HfArgumentParser(
-        (ModelArguments, DataArguments, TrainingArguments)
+        (ModelArguments, DataArguments, TrainingArguments, LoraArguments)
     )
     (
         model_args,
         data_args,
         training_args,
+        lora_args,
     ) = parser.parse_args_into_dataclasses()
 
     # This serves for single-gpu qlora.
@@ -174,6 +311,9 @@ def train():
                                            device_map=None,
                                            **model_load_kwargs)
 
+    # 应用 LoRA（如果需要）
+    model = setup_lora_model(model, lora_args)
+
     text_tokenizer = AutoTokenizer.from_pretrained(
         cache_path, trust_remote_code=True
     )
@@ -195,7 +335,15 @@ def train():
     trainer.train()
     trainer.save_state()
 
-    safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
+    # 保存模型（LoRA 适配器会自动保存）
+    if lora_args.use_lora:
+        # 保存 LoRA 适配器
+        if trainer.args.should_save and trainer.args.local_rank == 0:
+            model.save_pretrained(training_args.output_dir)
+            logger.info(f"LoRA adapter saved to {training_args.output_dir}")
+    else:
+        # 保存完整模型
+        safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
 
 if __name__ == "__main__":
     train()

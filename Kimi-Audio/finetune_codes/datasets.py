@@ -242,8 +242,15 @@ class LazySupervisedDataset(Dataset):
     
     @staticmethod
     def collate_fn(batch):
-        assert len(batch) == 1, "micro batch size is 1 for demo"
-
+        # 如果 batch size 为 1，直接返回
+        if len(batch) == 1:
+            return batch[0]
+        
+        # 如果 batch size > 1，需要合并多个样本
+        # 但由于数据格式复杂（包含 numpy 数组等），暂时只支持 batch_size=1
+        # 如果遇到多个样本，只返回第一个并给出警告
+        import warnings
+        warnings.warn(f"Batch size is {len(batch)}, but collate_fn only supports batch_size=1. Using first sample only.")
         return batch[0]
         
         

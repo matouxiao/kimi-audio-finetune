@@ -19,6 +19,8 @@ from kimia_infer.api.kimia import KimiAudio
 csv_path = os.path.join(script_dir, "split_lingyin_audio_answer.csv")
 test_audio_dir = os.path.join(script_dir, "test_audio")
 model_path = os.path.join(project_root, "output/finetuned_hf_for_inference")
+# 修改这一行
+# model_path = "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/llama/LLaMA-Factory/saves/Kimi-Audio-7B/lora/train_export"
 
 def main():
     # 检查模型路径是否存在

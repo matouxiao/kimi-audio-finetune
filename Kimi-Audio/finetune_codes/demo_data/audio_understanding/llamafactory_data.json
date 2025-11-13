@@ -1,0 +1,137 @@
+[
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "好，谢谢各位同事，大家晚上好。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_1.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "欢迎收听我们今天晚上的这个深度巡演汇报。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_2.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "今天晚上的话我们深度汇报一下这个天赋通信，天福通信。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_3.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "前面的两天的话也是陆续汇报了中旭创跟新盛。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_4.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "从现在整个光通信，就是我们说光模块光器件这个方向上面，目前市值排第三大的就是我们的天目通信。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_5.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "这家公司的话我们之前也是持续的深度跟踪，发布了一系列的报告。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219718181500000_6.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "天猫通信的话从公司的这个业务产品业务分类，包括过往的一些发展历史，也跟前面两家光模块公司有比较明显的区别。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219758931500000_7.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "首先的话就是公司所处的这个业务范围是属于就公司上市的时候，他所处的那个业务范围的话，主要还是在光模块内部的这种光学的精密元组件。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219758931500000_8.wav"
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请将语音内容转录为文字。<audio>"
+      },
+      {
+        "role": "assistant",
+        "content": "最早年成立的时候05年成立的时候，当时只有三款核心产品，这三款核心产品然后在上市取得融资之后的话，公司也是陆续做了这个产品线扩张。"
+      }
+    ],
+    "audios": [
+      "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune_codes/demo_data/audio_understanding/audio/0a3a533041544c95970cf86324f1e96a_1756219758931500000_9.wav"
+    ]
+  }
+]
