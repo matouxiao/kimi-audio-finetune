@@ -693,11 +693,22 @@ class MoonshotKimiaModel(Qwen2PreTrainedModel):
                     feat_len = end_idx - (start_idx + 1)
                     whisper_input_feature_i = whisper_input_feature[seg_idx].squeeze(0)
                     assert feat_len == is_continuous_mask[seg_idx].sum()
-                    expanded_whisper[start_idx + 1 : end_idx, :] = (
-                        whisper_input_feature_i[:feat_len, :]
-                    )
+                    # 修复：确保不超出expanded_whisper的边界，同时确保whisper_input_feature_i的长度匹配
+                    actual_end_idx = min(end_idx, expanded_whisper.shape[0])
+                    actual_feat_len = actual_end_idx - (start_idx + 1)
+                    # 确保whisper_input_feature_i的长度不超过actual_feat_len
+                    available_feat_len = min(actual_feat_len, whisper_input_feature_i.shape[0])
+                    if actual_feat_len > 0 and start_idx + 1 < expanded_whisper.shape[0]:
+                        # 确保目标范围有效
+                        target_end = min(start_idx + 1 + available_feat_len, expanded_whisper.shape[0])
+                        expanded_whisper[start_idx + 1 : target_end, :] = (
+                            whisper_input_feature_i[:available_feat_len, :]
+                        )
 
                 expanded_whisper = expanded_whisper.unsqueeze(0)
+                # 修复：确保输入数据类型与模型权重一致（bfloat16）
+                # 在多GPU训练时，DeepSpeed Zero3对数据类型检查更严格
+                expanded_whisper = expanded_whisper.to(dtype=audio_emb.dtype)
                 whisper_emb = self.vq_adaptor(
                     expanded_whisper.transpose(0, 1)
                 ).transpose(0, 1)

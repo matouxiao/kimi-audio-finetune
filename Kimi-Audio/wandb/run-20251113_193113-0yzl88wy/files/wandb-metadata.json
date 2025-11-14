@@ -1,0 +1,123 @@
+{
+  "os": "Linux-5.10.134-008.14.kangaroo.al8.x86_64-x86_64-with-glibc2.35",
+  "python": "CPython 3.10.13",
+  "startedAt": "2025-11-13T11:31:14.046560Z",
+  "args": [
+    "--model_name_or_path",
+    "moonshotai/Kimi-Audio-7B",
+    "--model_path",
+    "output/pretrained_hf",
+    "--data_path",
+    "finetune_codes/demo_data/audio_understanding/data_10k_with_semantic_codes.jsonl",
+    "--output_dir",
+    "output/lora_finetuned",
+    "--use_lora",
+    "--lora_rank",
+    "8",
+    "--lora_alpha",
+    "16",
+    "--lora_dropout",
+    "0.05",
+    "--lora_target",
+    "all",
+    "--num_train_epochs",
+    "5",
+    "--per_device_train_batch_size",
+    "1",
+    "--gradient_accumulation_steps",
+    "8",
+    "--learning_rate",
+    "5e-5",
+    "--model_max_length",
+    "8192",
+    "--eval_ratio",
+    "0.05",
+    "--bf16",
+    "--logging_steps",
+    "50",
+    "--save_steps",
+    "1000",
+    "--save_total_limit",
+    "5",
+    "--overwrite_output_dir"
+  ],
+  "program": "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio/finetune.py",
+  "codePath": "Kimi-Audio/finetune.py",
+  "git": {
+    "remote": "https://github.com/matouxiao/kimi-audio-finetune.git",
+    "commit": "eed67c7d75f2501011fed7eeeef35af9679ed773"
+  },
+  "email": "1612203034@qq.com",
+  "root": "/mnt/workspace/hyq/code/come_in/asr/xjz-assignment/kimi-audio/Kimi-Audio",
+  "host": "dsw-1074031-5b7b46d667-rqd5s",
+  "executable": "/usr/local/bin/python3",
+  "codePathLocal": "finetune.py",
+  "cpu_count": 80,
+  "cpu_count_logical": 80,
+  "gpu": "PPU-ZW810E",
+  "gpu_count": 8,
+  "disk": {
+    "/": {
+      "total": "2536443801600",
+      "used": "325632319488"
+    }
+  },
+  "memory": {
+    "total": "858993459200"
+  },
+  "cpu": {
+    "count": 80,
+    "countLogical": 80
+  },
+  "gpu_nvidia": [
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "PPU-ZW810E",
+      "memoryTotal": "102676561920",
+      "cudaCores": 16384,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "11.1"
+}
